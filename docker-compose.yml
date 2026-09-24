@@ -1,0 +1,32 @@
+services:
+  app:
+    build: .
+    image: dose-ledger:latest
+    environment:
+      DATA_DIR: /data
+      PORT: "8080"
+    volumes:
+      - dose-data:/data
+    ports:
+      # 可配置宿主端口：APP_PORT=18080 docker compose up -d
+      - "${APP_PORT:-8080}:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "/usr/local/bin/healthcheck.py"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+
+  verify:
+    image: dose-ledger:latest
+    build: .
+    # 一次性校验：代码测试 + 构建检查 + HTTP 冒烟 + 截尾恢复 + 损坏隔离 + 并发抢占。
+    # 退出码即结论：docker compose run --build verify ; echo $?
+    entrypoint: ["python3", "/srv/scripts/verify.py"]
+    # verify 自起临时 HTTP 服务做冒烟，不依赖 app；共享主机网络命名空间无需暴露端口。
+    command: []
+    profiles: ["verify"]
+
+volumes:
+  dose-data:
